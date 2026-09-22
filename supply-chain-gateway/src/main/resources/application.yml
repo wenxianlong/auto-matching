@@ -1,0 +1,108 @@
+server:
+  port: 8080 # 网关统一入口端口
+
+spring:
+  application:
+    name: gateway-service
+
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6380
+      password:
+
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 127.0.0.1:8848
+        username: nacos
+        password: nacos
+      config:
+        server-addr: 127.0.0.1:8848
+        file-extension: yaml
+
+
+    gateway:
+      discovery:
+        locator:
+          enabled: true # 开启基于服务名的自动路由 (可选)
+
+      # 【关键】：全局跨域配置，允许前端 3000 端口直连 8080 端口
+#      globalcors:
+#        cors-configurations:
+#          '[/**]':
+#            allowedOriginPatterns: "*" # 允许所有来源
+#            allowedMethods: "*"        # 允许所有方法 (GET, POST, OPTIONS 等)
+#            allowedHeaders: "*"        # 允许所有请求头
+#            allowCredentials: true     # 允许携带 Cookie/Token
+#            maxAge: 3600
+
+      routes:
+        # ================= 1. 管理端路由 (B端) =================
+        - id: admin-system-route
+          uri: lb://user-service # 您的系统管理服务
+          predicates:
+            - Path=/api/admin/system/**
+          filters:
+            - StripPrefix=1 # 转发时去掉 /api，保留 /admin/system/...
+
+        - id: admin-trade-route
+          uri: lb://trade-service
+          predicates:
+            - Path=/api/admin/business/**
+          filters:
+            - StripPrefix=1
+
+        # ================= 2. 服务端路由 (C端) =================
+        - id: app-trade-route
+          uri: lb://trade-service
+          predicates:
+            - Path=/api/app/business/**
+          filters:
+            - StripPrefix=1
+
+        # C端认证服务 (如果有独立的 C端登录)
+        - id: app-auth-route
+          uri: lb://user-service # 暂时复用，后续可拆分为 member-service
+          predicates:
+            - Path=/api/app/auth/**
+          filters:
+            - StripPrefix=1
+
+  config:
+    import:
+      - optional:nacos:gateway-service.yaml
+
+# ================= 新增网关自定义鉴权配置 =================
+# 【关键】：gateway 必须顶格写，与 spring 平级！
+gateway:
+  auth:
+    # 白名单路径 (支持 Ant 风格通配符)
+    white-list:
+      # 【修改】：将旧的 /user-service/auth/login 替换为新的路径
+      - /api/admin/system/auth/login
+      - /api/admin/system/auth/register
+      - /api/admin/system/auth/logout
+      - /api/admin/system/oauth2/**
+      - /**/v3/api-docs/**
+      - /**/actuator/**
+      - /user-service/error
+
+    # RSA 公钥 (用于校验 JWT 签名)
+    # 【注意】：必须使用 user-service 中生成的 public.key 内容
+    # 使用 | 符号可以保留多行文本的换行符
+    public-key:
+      -----BEGIN PUBLIC KEY-----
+      MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAkwItqjj5Tvul3VAo+M/u
+      +XPAAuCG2lmBTTrbwEQhxZ7Mce0w8AJdj/C/AIGisbEWwBdTwhFfia48zDDVv6uA
+      d8T+mlVz8SpelrXqq98w0E/Ugw4XuVI5OQR0/4BJ/827IwylnfRyjKDTuV65g0m3
+      UCdwxLWaW6DkeDWbcKCBpra0SGkvbodvq3vvxVljr/IxLGKwAER7FXLUhPvSdfLq
+      UoI7kS0exNFJoo67+N2o19WZlf/wNV+aSNL2ccSrFosqJS3DApKD1kxB2ASEd4KX
+      sYSJMGPmX+9UVL2yaW8dqNbA/oYPaZgCO4+niS2eu1ceC8iPZUSy0nJ02gsyxwyt
+      wwIDAQAB
+      -----END PUBLIC KEY-----
+# =======================================================
+
+logging:
+  level:
+    org.springframework.cloud.gateway: DEBUG

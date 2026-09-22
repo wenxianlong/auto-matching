@@ -1,0 +1,153 @@
+server:
+  port: 8083 # 交易服务端口
+
+spring:
+  application:
+    name: trade-service
+
+  datasource:
+    dynamic:
+      primary: master # 设置默认数据源为 master
+      strict: false
+      # 【关键 1】：开启 dynamic-datasource 对 Seata 的支持
+      # 它会在内部正确地使用 Seata 的 DataSourceProxy 包装底层的 Druid 数据源
+      seata: true
+
+      # ================= 全局 Druid 连接池配置 =================
+      druid:
+        initial-size: 5
+        min-idle: 5
+        max-active: 20
+        max-wait: 60000
+        time-between-eviction-runs-millis: 60000
+        min-evictable-idle-time-millis: 300000
+        # 验证连接有效性 (MySQL 和 SQL Server 都支持 SELECT 1)
+        validation-query: SELECT 1
+        test-while-idle: true
+        test-on-borrow: false
+        test-on-return: false
+
+        # Druid 监控面板配置
+        stat-view-servlet:
+          enabled: true
+          url-pattern: /druid/*
+          login-username: admin   # 监控面板账号
+          login-password: 123456  # 监控面板密码
+          # 如果写成了 null 或者没写，某些版本会默认只允许 127.0.0.1，导致外网或宿主机访问被拒。
+          allow: ""
+          deny: ""
+        web-stat-filter:
+          enabled: true
+          exclusions: "*.js,*.gif,*.jpg,*.png,*.css,*.ico,/druid/*"
+
+        # 过滤器配置 (防 SQL 注入、慢 SQL 统计)
+        filter:
+          stat:
+            enabled: true
+            log-slow-sql: true
+            slow-sql-millis: 1000
+            merge-sql: true
+          wall:
+            config:
+              multi-statement-allow: true
+
+      # ================= 具体数据源配置 =================
+      datasource:
+        # 1. 主数据源：MySQL
+        master:
+          driver-class-name: com.mysql.cj.jdbc.Driver
+          url: jdbc:mysql://127.0.0.1:3306/supply-chain?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=false&serverTimezone=GMT%2B8
+          username: root
+          password: 123456
+
+        # 2. 从数据源：SQL Server
+        slave:
+          driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+          url: jdbc:sqlserver://127.0.0.1:1433;DatabaseName=test;encrypt=false;trustServerCertificate=true;
+          username: sa
+          password: 123456
+
+  # 数据库配置 (使用 trade_db)
+  # hikari 配置
+#  datasource:
+#    dynamic:
+#      primary: master # 【关键】：设置默认数据源为 master (MySQL)
+#      strict: false   # 严格模式：false 表示如果找不到指定的数据源，回退到 primary
+#      # 它是全局连接池配置，不是某个具体的数据源
+#      hikari:
+#        minimum-idle: 5
+#        maximum-pool-size: 20
+#        max-lifetime: 1800000
+#        connection-timeout: 30000
+#      datasource:
+#        # ================= 1. 主数据源：MySQL =================
+#        master:
+#          driver-class-name: com.mysql.cj.jdbc.Driver
+#          url: jdbc:mysql://127.0.0.1:3306/supply-chain?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=false&serverTimezone=GMT%2B8
+#          username: root
+#          password: 123456
+#        # ================= 2. 从数据源：SQL Server =================
+#        slave:
+#          driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+#          # 【注意】：新版驱动建议加上 encrypt=false 或 trustServerCertificate=true 防止 SSL 报错
+#          url: jdbc:sqlserver://127.0.0.1:1433;DatabaseName=test;encrypt=true;trustServerCertificate=true;
+#          username: sa
+#          password: 123456
+
+  # Redis
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6380
+
+  # Nacos
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 127.0.0.1:8848
+      config:
+        server-addr: 127.0.0.1:8848
+        file-extension: yaml
+
+  config:
+    import:
+      - optional:nacos:trade-service.yaml
+
+  # OAuth2 资源服务器配置
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://127.0.0.1:8081/oauth2/jwks
+
+# MyBatis-Plus
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: assign_id
+
+# Seata 分布式事务配置
+seata:
+  enabled: true
+  application-id: ${spring.application.name}
+  tx-service-group: my_test_tx_group # 需与 Seata Server 配置一致
+  # 【关键 2】：关闭 Seata 默认的自动数据源代理！
+  # 如果不关闭，Seata 会抢先代理数据源，导致 @DS("slave") 切换数据源失效
+  enable-auto-data-source-proxy: false
+  service:
+    vgroup-mapping:
+      my_test_tx_group: default
+  registry:
+    type: nacos
+    nacos:
+      server-addr: 127.0.0.1:8848
+      namespace: ""
+      group: SEATA_GROUP
+  config:
+    type: nacos
+    nacos:
+      server-addr: 127.0.0.1:8848
+      namespace: ""
+      group: SEATA_GROUP

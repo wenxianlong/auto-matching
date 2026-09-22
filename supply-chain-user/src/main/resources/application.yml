@@ -1,0 +1,55 @@
+server:
+  port: 8081 # 用户服务端口
+
+spring:
+  application:
+    name: user-service
+
+  # 数据库配置
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://127.0.0.1:3306/supply-chain?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+    username: root
+    password: 123456
+
+  # Redis 配置 (用于 Token 存储或分布式锁)
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6380
+      password:
+
+  # Nacos 注册与配置中心
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 127.0.0.1:8848
+      config:
+        server-addr: 127.0.0.1:8848
+        file-extension: yaml
+    # 👇 核心修复点：引入 Nacos 配置
+  config:
+    import:
+      - optional:nacos:user-service.yaml
+
+  # 【关键新增】：配置 OAuth2 资源服务器的 JWT 校验规则
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # 指向当前服务自己的 OAuth2 JWK 端点，用于获取 RSA 公钥验签
+          jwk-set-uri: http://127.0.0.1:8081/oauth2/jwks
+
+# MyBatis-Plus 配置
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl # 开发环境打印 SQL
+  global-config:
+    db-config:
+      id-type: assign_id # 雪花算法ID
+
+# 日志级别
+logging:
+  level:
+    org.springframework.security: DEBUG
+

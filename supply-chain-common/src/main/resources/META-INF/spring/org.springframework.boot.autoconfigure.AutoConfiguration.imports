@@ -1,0 +1,5 @@
+com.jn.common.config.RedisConfig
+com.jn.common.utils.RedisUtils
+com.jn.common.config.MybatisPlusConfig
+com.jn.common.config.WebMvcConfig
+com.jn.common.interceptor.TenantContextInterceptor

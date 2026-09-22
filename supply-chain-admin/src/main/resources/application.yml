@@ -1,0 +1,49 @@
+server:
+  port: 8084 # 配置服务端口
+
+spring:
+  application:
+    name: config-service
+
+  # 数据库配置 (使用 config_db)
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://127.0.0.1:3306/supply-chain?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+    username: root
+    password: 123456
+
+  # Redis
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6380
+
+  # Nacos
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 127.0.0.1:8848
+      config:
+        server-addr: 127.0.0.1:8848
+        file-extension: yaml
+
+  config:
+    import:
+      - optional:nacos:config-service.yaml
+
+  # OAuth2 资源服务器配置 (校验 JWT)
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # 这里配置 user-service 的 JWK Set 端点，用于获取公钥校验 Token
+          # 请确保 user-service 启动后，此地址可访问
+          jwk-set-uri: http://127.0.0.1:8081/oauth2/jwks
+
+# MyBatis-Plus
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: assign_id
